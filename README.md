@@ -1,5 +1,5 @@
 # Aircon-Controller
-Controller for a Mitsubishi Heavy Industries Model FDC508HES3 air conditioning unit
+Controller for a Mitsubishi Heavy Industries Model FDC508HES3 air conditioner
 Provides mqtt control of the airconditioner using its serial communications link that runs
 between MHI's RCD-H-E remote control unit and the CNB port on the air conditioner's control board.
 Also provides the ability to control the damper so that airflow can be directed to the correct air conditioning zone.
