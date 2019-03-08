@@ -13,6 +13,7 @@ Photographs and schematics have been included in a specific folder. Note that th
 I've also included a document that shows what I found when reverse engineering the protocol between the RCD-H-E remote control unit and the CNB port on the air conditioner's control board. There are still gaps in some areas of that protocol but all essential functions are covered.
 
 License
+
 This project is licensed under the MIT License - see the LICENSE.md file for details
 
 Acknowledgments
