@@ -6,7 +6,7 @@ Also provides the ability to control a damper so that airflow can be directed to
 An inclinometer is provided for the damper in order to detect its position and control the air flow between zones with greater precision.
 
 Requires an mqtt-based controller that measures the temperature readings in each room, compares those temperatures to desired levels and controls the air conditioner and damper to provide the optimum comfort.
-That controller will be documented with its code in a separate repository.
+That controller is documented here https://github.com/roscoe81/Home-Manager.
 
 Photographs and schematics have been included in a specific folder. Note that the damper controller switches high voltages and it should only be deployed by a licensed electrician.
 
