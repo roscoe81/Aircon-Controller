@@ -8,7 +8,19 @@ An inclinometer is provided for the damper in order to detect its position and c
 Requires an mqtt-based controller that measures the temperature readings in each room, compares those temperatures to desired levels and controls the air conditioner and damper to provide the optimum comfort.
 That controller is documented here https://github.com/roscoe81/Home-Manager.
 
-Photographs and schematics have been included in a specific folder. Note that the damper controller switches high voltages and it should only be deployed by a licensed electrician.
+## Hardware Schematics
+![Aircon Controller Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Controller_schem.png)
+
+![Damper Position Sensor Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Damper%20Position%20Sensor_schem.png)
+
+![Damper Control Board Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Damper%20Control%20Board_schem.png)
+
+## Hardware Photographs
+![Aircon Controller](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/IMG_1565.png)
+
+![Damper Position Sensor](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/IMG_1432.png)
+
+**Note that the damper controller switches high voltages and it should only be deployed by a licensed electrician.**
 
 I've also included a document that shows what I found when reverse engineering the protocol between the RCD-H-E remote control unit and the CNB port on the air conditioner's control board. There are still gaps in some areas of that protocol but all essential functions are covered.
 
