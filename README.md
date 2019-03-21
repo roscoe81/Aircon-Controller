@@ -22,7 +22,8 @@ That controller is documented here https://github.com/roscoe81/Home-Manager.
 
 **Note that the damper controller switches high voltages and it should only be deployed by a licensed electrician.**
 
-I've also included a document that shows what I found when reverse engineering the protocol between the RCD-H-E remote control unit and the CNB port on the air conditioner's control board. There are still gaps in some areas of that protocol but all essential functions are covered.
+## Air Conditioner Communications Protocol
+I've included a [document](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/Aircon%20Controller%20Comms.pdf) that shows what I found when reverse engineering the protocol between the Mitsubishi RCD-H-E remote control unit and the CNB port on the air conditioner's main unit. There are still gaps in some areas of that protocol but all essential functions are covered.
 
 License
 
