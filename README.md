@@ -5,8 +5,7 @@ between Mitsubishi's RCD-H-E remote control unit and the CNB port on the air con
 Also provides the ability to control a damper so that airflow can be directed to the correct air conditioning zone.
 An inclinometer is provided for the damper in order to detect its position and control the air flow between zones with greater precision.
 
-Requires an mqtt-based controller that measures the temperature readings in each room, compares those temperatures to desired levels and controls the air conditioner and damper to provide the optimum comfort.
-That controller is documented here https://github.com/roscoe81/Home-Manager.
+This project requires a separate mqtt-based controller that captures the actual temperatures of each room, compares those temperatures to desired temperature levels and controls the air conditioner and damper to align the desired and actual temperatures. I've implemented such a [controller](https://github.com/roscoe81/Home-Manager) as part of a more comprehensive Home Automation System.
 
 ## Hardware Schematics
 ![Aircon Controller Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Controller_schem.png)
