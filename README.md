@@ -24,6 +24,8 @@ This project requires a separate mqtt-based controller that captures the actual 
 ## Air Conditioner Communications Protocol
 I've included a [document](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/Aircon%20Controller%20Comms.pdf) that shows what I found when reverse engineering the protocol between the Mitsubishi RCD-H-E remote control unit and the CNB port on the air conditioner's main unit. There are still gaps in some areas of that protocol but all essential functions are covered.
 
+![Communications Protocol](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/F43B66E8-F1EA-4F13-B185-9C76222CD1DF.jpeg)
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE.md file for details
