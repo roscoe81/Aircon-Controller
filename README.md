@@ -28,6 +28,6 @@ I've included a [document](https://github.com/roscoe81/Aircon-Controller/blob/ma
 
 This project is licensed under the MIT License - see the LICENSE.md file for details
 
-## Acknowledgments
+## Acknowledgements
 
 I'd like to acknowledge the work done by [Hadley Rich](https://github.com/hadleyrich/MQMitsi) who did similar work on a Mitsubishi air conditioner that provided me with the inspiration to undertake this task.
