@@ -19,7 +19,7 @@ This project requires a separate mqtt-based controller that captures the actual 
 
 ![Damper Position Sensor](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/IMG_1432.png)
 
-**Note that the damper controller switches high voltages and it should only be deployed by a licensed electrician.**
+**Note that the damper controller switches high voltages and it should only be constructed and deployed by a licensed electrician.**
 
 ## Air Conditioner Communications Protocol
 I've included a [document](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/Aircon%20Controller%20Comms.pdf) that shows what I found when reverse engineering the protocol between the Mitsubishi RCD-H-E remote control unit and the CNB port on the air conditioner's main unit. There are still gaps in some areas of that protocol but all essential functions are covered.
