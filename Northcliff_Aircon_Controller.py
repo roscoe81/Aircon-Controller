@@ -1,4 +1,4 @@
-# Northcliff Airconditioner Controller Version 3.40 Align mqtt messages to homebridge service names
+# Northcliff Airconditioner Controller Version 3.41 Add Ventilate Mode
 #!/usr/bin/env python3
 import RPi.GPIO as GPIO
 import time
@@ -129,6 +129,8 @@ class NorthcliffAirconController(object):
             parsed_json = json.loads(decoded_payload)
             if parsed_json['service'] == 'Off':
                 self.process_thermo_off_command()
+            elif parsed_json['service'] == 'Ventilate':
+                self.process_ventilate_mode()
             elif parsed_json['service'] == 'Thermostat Heat':
                 self.process_thermo_heat_command()
             elif parsed_json['service'] == 'Thermostat Cool':
@@ -226,6 +228,30 @@ class NorthcliffAirconController(object):
         self.fan_lo = True
         self.update_status()
         
+    def process_ventilate_mode(self):
+        if self.remote_operation_on == False: # Turn On
+            self.remote_operation_on = True
+            self.enable_serial_comms_loop = True
+            GPIO.output(self.control_enable, True) # Take Control of Remote
+            self.damper_control_state = True
+            GPIO.output(self.damper_control, True) # Take Control of Damper
+            time.sleep (1.0)
+        self.packet_1_dictionary["2Mode1"] = self.mode['Fan On'] # Set to Fan Mode
+        self.packet_1_dictionary["4SetTemp1"] = self.set_temp['21 degrees'] # Set 21 Degrees
+        self.packet_3_dictionary["2Mode3"] = self.mode['Fan On'] # Set to Fan Mode
+        self.packet_3_dictionary["4SetTemp3"] = self.set_temp['21 degrees'] # Set 21 Degrees
+        self.packet_1_dictionary["5Fan1"] = self.fan_speed['Hi On'] # Fan Hi
+        self.packet_3_dictionary["5Fan3"] = self.fan_speed['Hi On'] # Fan Hi
+        self.cool_mode = False
+        self.fan_mode = True
+        self.heat_mode = False
+        self.fan_med = False
+        self.fan_hi = True
+        self.fan_lo = False
+        self.update_status()
+
+
+
     def process_thermo_auto_command(self): # Holding place if Auto method is to be added in the future
         pass
 
