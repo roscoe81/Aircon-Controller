@@ -1,5 +1,5 @@
-# Northcliff Airconditioner Controller Version 3.41 Add Ventilate Mode
 #!/usr/bin/env python3
+# Northcliff Airconditioner Controller Version 3.43 Add Reboot on lost heartbeat and run heartbeat outside comms loop
 import RPi.GPIO as GPIO
 import time
 from datetime import datetime
@@ -13,6 +13,7 @@ import binascii
 import sys
 import spidev
 import math
+import os
 
 class NorthcliffAirconController(object):
     def __init__(self):
@@ -27,7 +28,6 @@ class NorthcliffAirconController(object):
         GPIO.setup(self.damper_control, GPIO.OUT)
         GPIO.setup(self.damper_stop, GPIO.OUT)
         GPIO.setup(self.damper_zone, GPIO.OUT)
-        self.enable_serial_comms_loop = False 
         GPIO.output(self.control_enable, False)
         self.damper_control_state = False
         GPIO.output(self.damper_control, False)
@@ -109,7 +109,7 @@ class NorthcliffAirconController(object):
         self.client = mqtt.Client('aircon') #Create new instance of mqtt Class
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        self.client.connect("studypi.local", 1883, 60) #Connect to mqtt broker
+        self.client.connect("<your mqtt Broker name>", 1883, 60) #Connect to mqtt broker
         self.client.loop_start() #Start mqtt monitor thread
         self.client.subscribe("AirconControl")
         # Detect Damper Position and update Home Manager with aircon status
@@ -250,8 +250,6 @@ class NorthcliffAirconController(object):
         self.fan_lo = False
         self.update_status()
 
-
-
     def process_thermo_auto_command(self): # Holding place if Auto method is to be added in the future
         pass
 
@@ -323,21 +321,23 @@ class NorthcliffAirconController(object):
         self.update_status()       
 
     def heartbeat_ack(self):
-        #self.print_status('Heartbeat received from Home Manager on ')
+        self.print_status('Heartbeat received from Home Manager on ')
         self.heartbeat_count = 0
         self.no_heartbeat_ack = False
     ### End of Methods for mqtt messages received from Home Manager ###
 
     ### Methods called in main loop ###
-    def process_home_manager_heartbeat(self): # Send heartbeat signal to Home Manager every 120 loops and turn aircon off if there's no response within 80 more loops
+    def process_home_manager_heartbeat(self): # Send heartbeat signal to Home Manager every 120 loops. Turn aircon off and reboot if there's no response within 80 more loops
         self.heartbeat_count += 1
         if self.heartbeat_count == 120:
-            #self.print_status('Sending Heartbeat to Home Manager on ')
+            self.print_status('Sending Heartbeat to Home Manager on ')
             self.send_heartbeat_to_home_manager()
         if self.heartbeat_count > 200:
             self.print_status('Home Manager Heartbeat Lost. Setting Aircon to Thermo Off Mode on ')
             self.no_heartbeat_ack = True
             self.process_thermo_off_command()
+            time.sleep(10)
+            os.system('sudo reboot')
 
     def send_heartbeat_to_home_manager(self):
         self.client.publish('AirconStatus', '{"service": "Heartbeat"}')
@@ -563,9 +563,8 @@ class NorthcliffAirconController(object):
         try:
             self.startup()
             while True:
-                time.sleep(0.1)
-                if self.enable_serial_comms_loop == True:
-                    self.process_home_manager_heartbeat() # Send heartbeat to Home Manager every 120 loops. 
+                self.process_home_manager_heartbeat() # Send heartbeat to Home Manager every 120 loops.
+                if self.enable_serial_comms_loop == True: 
                     self.aircon_comms.flushInput() # remove sent packets from aircon comms buffer
                     self.build_packets(self.packet_1_dictionary, self.packet_3_dictionary) # Build Packets 1 and 3
                     self.send_serial_aircon_data(self.packet_1_send) # Send Packet 1 to aircon comms port
@@ -581,7 +580,7 @@ class NorthcliffAirconController(object):
                         print("Packet 3 not sent because of Packet 2 error")
                     time.sleep(0.45) # Wait until Packet 3 has been sent, plus 0.05 sec gap (or equivalent time if it isn't sent)
                     self.detect_damper_position() # Determine the damper's current position
-                    self.adjust_damper_position() # Adjusts damper position if the current damper position is different from the rquested damper position
+                    self.adjust_damper_position() # Adjusts damper position if the current damper position is different from the requested damper position
                 else:
                     if self.remote_operation_on == True: # This ensures that the disconnect is only done once
                         GPIO.output(self.control_enable, False) # Relinquish Control of the aircon
@@ -595,7 +594,7 @@ class NorthcliffAirconController(object):
                             self.malfunction = False #Clear Malfunction Flag (Packets might be corrupted on disconnect) unless there's a loss of heartbeat
                         self.update_status()
                     else:
-                        time.sleep (0.15)
+                        time.sleep (1)
         except KeyboardInterrupt:
             self.shutdown_cleanup()
     ### End of Main Loop ###
