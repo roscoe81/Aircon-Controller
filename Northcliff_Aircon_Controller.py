@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Northcliff Airconditioner Controller Version 3.46 - Gen
+# Northcliff Airconditioner Controller Version 3.47 - Gen
 import RPi.GPIO as GPIO
 import time
 from datetime import datetime
@@ -304,14 +304,14 @@ class NorthcliffAirconController(object):
         self.print_status("Fan Mode Command received on ")
         self.packet_1_dictionary["2Mode1"] = self.mode['Fan On'] # Set to Fan Mode
         self.packet_3_dictionary["2Mode3"] = self.mode['Fan On'] # Set to Fan Mode
-        self.packet_1_dictionary["5Fan1"] = self.fan_speed['Hi On'] # Fan Hi
-        self.packet_3_dictionary["5Fan3"] = self.fan_speed['Hi On'] # Fan Hi
+        self.packet_1_dictionary["5Fan1"] = self.fan_speed['Lo On'] # Fan Lo
+        self.packet_3_dictionary["5Fan3"] = self.fan_speed['Lo On'] # Fan Lo
         self.cool_mode = False
         self.fan_mode = True
         self.heat_mode = False
         self.fan_med = False
-        self.fan_hi = True
-        self.fan_lo = False
+        self.fan_hi = False
+        self.fan_lo = True
         self.update_status()
         
     def process_fan_hi_command(self):
@@ -342,7 +342,7 @@ class NorthcliffAirconController(object):
         self.update_status()       
 
     def heartbeat_ack(self):
-        self.print_status('Heartbeat received from Home Manager on ')
+        #self.print_status('Heartbeat received from Home Manager on ')
         self.heartbeat_count = 0
         self.no_heartbeat_ack = False
     ### End of Methods for mqtt messages received from Home Manager ###
@@ -351,7 +351,7 @@ class NorthcliffAirconController(object):
     def process_home_manager_heartbeat(self): # Send heartbeat signal to Home Manager every 120 loops. Turn aircon off and reboot if there's no response within 80 more loops
         self.heartbeat_count += 1
         if self.heartbeat_count == 120:
-            self.print_status('Sending Heartbeat to Home Manager on ')
+            #self.print_status('Sending Heartbeat to Home Manager on ')
             self.send_heartbeat_to_home_manager()
         if self.heartbeat_count > 200:
             self.print_status('Home Manager Heartbeat Lost. Setting Aircon to Thermo Off Mode on ')
