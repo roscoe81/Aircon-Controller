@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Northcliff Airconditioner Controller Version 3.47 - Gen
+# Northcliff Airconditioner Controller Version 3.48 Gen
 import RPi.GPIO as GPIO
 import time
 from datetime import datetime
@@ -120,7 +120,6 @@ class NorthcliffAirconController(object):
         self.client.on_message = self.on_message
         self.client.connect("<your mqtt Broker name>", 1883, 60) #Connect to mqtt broker
         self.client.loop_start() #Start mqtt monitor thread
-        self.client.subscribe("AirconControl")
         if self.calibrate_damper_on_startup == True:
         	self.calibrate_damper(damper_movement_time = 180)
         # Detect Damper Position and update Home Manager with aircon status
@@ -131,7 +130,8 @@ class NorthcliffAirconController(object):
         time.sleep(1)
         self.print_status("Connected to mqtt server with result code "+str(rc)+" on ")
         print("")
-
+        self.client.subscribe("AirconControl")
+        
     def on_message(self, client, userdata, msg): # mqtt message method calls
         decoded_payload = str(msg.payload.decode("utf-8"))
         message = msg.topic+" "+ decoded_payload # Capture message with binary states converted to a string
