@@ -7,6 +7,8 @@ An inclinometer is provided for the damper in order to detect its position and c
 
 This project requires a separate mqtt-based controller that captures the actual temperatures of each room, compares those temperatures to desired temperature levels and controls the air conditioner and damper to align the desired and actual temperatures. I've implemented such a [controller](https://github.com/roscoe81/Home-Manager) as part of a more comprehensive Home Automation System.
 
+Version 5.1 Gen adds the ability to control dampers for each room and to control fan speed. Hardware changes were necessary to control each room damper.
+
 ## Hardware Schematics
 ![Aircon Controller Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Controller_schem.png)
 
