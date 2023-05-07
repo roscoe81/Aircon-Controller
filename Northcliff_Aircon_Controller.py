@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-# Northcliff Airconditioner Controller Version 3.48 Gen
+# Northcliff Airconditioner Controller Version 5.1 Gen
+# Requires Home Manager 11.0 or greater
 import RPi.GPIO as GPIO
 import time
 from datetime import datetime
-#import requests
-#from threading import Thread
 import paho.mqtt.client as mqtt
 import struct
 import json
@@ -21,10 +20,17 @@ class NorthcliffAirconController(object):
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         self.control_enable = 17
+        GPIO.setup(self.control_enable, GPIO.OUT)
+
+        # Set up Room Damper Control. False = Damper Open, True = Damper Closed
+        # Leave as {} if there are no room dampers
+        self.damper_rooms = {"Main":27, "Living":22, "Kitchen":5, "Study":6, "South":26, "North": 16}
+        self.room_damper_states = {}
+
+        # Set up central damper and room damper IO, states and positions
         self.damper_control = 25
         self.damper_stop = 24
         self.damper_zone = 23
-        GPIO.setup(self.control_enable, GPIO.OUT) 
         GPIO.setup(self.damper_control, GPIO.OUT)
         GPIO.setup(self.damper_stop, GPIO.OUT)
         GPIO.setup(self.damper_zone, GPIO.OUT)
@@ -35,7 +41,34 @@ class NorthcliffAirconController(object):
         GPIO.output(self.damper_stop, False)
         self.damper_zone_state = False
         GPIO.output(self.damper_zone, False)
-        
+        # Set up central damper startup state
+        self.requested_damper_percent = 50
+        self.adjusting_damper = False     
+        if self.damper_rooms != {}: # Set up room damper IO and states if configured
+            for room in self.damper_rooms:
+                GPIO.setup(self.damper_rooms[room], GPIO.OUT)
+                GPIO.output(self.damper_rooms[room], False) # Open all room dampers
+                self.room_damper_states[room] = False # Mirror room damper state
+        else: # Central damper sensor setup if there are no room dampers
+            # Set default central damper positions
+            self.damper_day_position = 416
+            self.damper_night_position = 1648
+            self.calibrate_damper_on_startup = calibrate_damper_on_startup
+            # Set up SPI Port for the central damper position sensor
+            self.spi = spidev.SpiDev()
+            speed = 50000
+            self.spi.open(0,0)
+            self.spi.max_speed_hz = speed
+            # Initialise damper position sensor
+            resp = self.spi.xfer2([0x0e, 0x00, 0x00]) # X-Channel Self Test
+            time.sleep(0.3)
+            resp = self.spi.xfer2([0x00, 0x00]) # Exit Self Test
+            time.sleep(0.1)
+            resp = self.spi.xfer2([0x0f, 0x00, 0x00]) # Y-Channel Self Test
+            time.sleep(0.3)
+            resp = self.spi.xfer2([0x00, 0x00]) # Exit Self Test
+            time.sleep(0.1)
+
         # Aircon Startup Mode
         self.remote_operation_on = False # This flag keeps track of whether the aircon is under remote or autonomous operation 
         self.enable_serial_comms_loop = False # This flag is set to True during remote operation to enable the serial comms loop when the aircon is under remote operations 
@@ -45,19 +78,11 @@ class NorthcliffAirconController(object):
         self.heat_mode = False # Mirrors aircon heat mode indicator
         self.cool_mode = False # Mirrors aircon cool mode indicator
         self.fan_mode = False # Mirrors aircon fan mode indicator
-        self.fan_hi = False # Mirrors aircon fan hi indicator
-        self.fan_med = False # Mirrors aircon fan med indicator
-        self.fan_lo = False # Mirrors aircon fan lo indicator
+        #self.fan_hi = False # Mirrors aircon fan hi indicator
+        #self.fan_med = False # Mirrors aircon fan med indicator
+        #self.fan_lo = False # Mirrors aircon fan lo indicator
+        self.fan_state = 'Off' # Mirrors aircon fan speed
         self.filter = False # Mirrors aircon filter indicator
-        
-        # Set up damper states
-        self.requested_damper_percent = 100
-        self.adjusting_damper = False
-        
-        # Set default damper positions
-        self.damper_day_position = 416
-        self.damper_night_position = 1648
-        self.calibrate_damper_on_startup = calibrate_damper_on_startup
         
         # Set up heartbeat
         self.heartbeat_count = 0
@@ -91,22 +116,6 @@ class NorthcliffAirconController(object):
         # Set up serial port for aircon controller comms
         self.aircon_comms = serial.Serial("/dev/ttyAMA0", 1200, parity=serial.PARITY_EVEN, timeout=0.5) # After swapping serial and bluetooth ports so we can use parity
 
-        # Set up SPI Port for the damper position sensor
-        self.spi = spidev.SpiDev()
-        speed = 50000
-        self.spi.open(0,0)
-        self.spi.max_speed_hz = speed
-
-        # Initialise damper position sensor
-        resp = self.spi.xfer2([0x0e, 0x00, 0x00]) # X-Channel Self Test
-        time.sleep(0.3)
-        resp = self.spi.xfer2([0x00, 0x00]) # Exit Self Test
-        time.sleep(0.1)
-        resp = self.spi.xfer2([0x0f, 0x00, 0x00]) # Y-Channel Self Test
-        time.sleep(0.3)
-        resp = self.spi.xfer2([0x00, 0x00]) # Exit Self Test
-        time.sleep(0.1)
-
     def print_status(self, print_message):
         today = datetime.now()
         print("")
@@ -120,10 +129,11 @@ class NorthcliffAirconController(object):
         self.client.on_message = self.on_message
         self.client.connect("<your mqtt Broker name>", 1883, 60) #Connect to mqtt broker
         self.client.loop_start() #Start mqtt monitor thread
-        if self.calibrate_damper_on_startup == True:
-        	self.calibrate_damper(damper_movement_time = 180)
-        # Detect Damper Position and update Home Manager with aircon status
-        self.detect_damper_position(calibrate = False)
+        # Allow for central damper calibration if there are no room dampers
+        if self.damper_rooms == {} and self.calibrate_damper_on_startup == True:
+            self.calibrate_damper(damper_movement_time = 180)
+            # Detect Damper Position and update Home Manager with aircon status
+            self.detect_damper_position(calibrate = False)
         self.update_status()
 
     def on_connect(self, client, userdata, flags, rc): # Print mqtt status on connecting to broker
@@ -131,7 +141,7 @@ class NorthcliffAirconController(object):
         self.print_status("Connected to mqtt server with result code "+str(rc)+" on ")
         print("")
         self.client.subscribe("AirconControl")
-        
+
     def on_message(self, client, userdata, msg): # mqtt message method calls
         decoded_payload = str(msg.payload.decode("utf-8"))
         message = msg.topic+" "+ decoded_payload # Capture message with binary states converted to a string
@@ -161,9 +171,14 @@ class NorthcliffAirconController(object):
             elif parsed_json['service'] == 'Fan Lo':
                 self.process_fan_lo_command()
             elif parsed_json['service'] == 'Damper Percent':
-                self.requested_damper_percent = parsed_json['value']
-                self.print_status("Damper Command Received on ")
-                print("Requested Damper Percent is", self.requested_damper_percent, "Current Damper Percent is", self.reported_damper_percent)       
+                if self.damper_rooms == {}:
+                    self.requested_damper_percent = parsed_json['value']
+                    self.print_status("Damper Command Received on ")
+                    print("Requested Damper Percent is", self.requested_damper_percent, "Current Damper Percent is", self.reported_damper_percent)
+                else:
+                    print("Trying to adjust central damper when using room dampers. Message ignored")
+            elif parsed_json['service'] == 'Room Damper':
+                self.process_room_dampers(parsed_json['Room Damper Settings'])
             elif parsed_json['service'] == 'Update Status': # If HomeManager wants a status update
                 self.print_status("Status Update Requested on ")
                 self.update_status()
@@ -173,9 +188,16 @@ class NorthcliffAirconController(object):
                 print("Received unknown message", str(parsed_json))
 
     def update_status(self): # Send aircon status to Home Manager
-        status = json.dumps({'service': 'Status Update', 'Remote Operation': self.remote_operation_on, 'Heat': self.heat_mode, 'Cool': self.cool_mode,
-                                  'Fan': self.fan_mode, 'Fan Hi': self.fan_hi, 'Fan Med': self.fan_med, 'Fan Lo': self.fan_lo, 'Heating': self.heating,
+        if self.damper_rooms == {}: # Update status with central damper position and without room damper states if using a central damper
+            status = json.dumps({'service': 'Status Update', 'Remote Operation': self.remote_operation_on, 'Heat': self.heat_mode, 'Cool': self.cool_mode,
+                                  'Fan': self.fan_mode, 'Fan Speed': self.fan_state, 'Heating': self.heating,
                                   'Compressor': self.compressor, 'Malfunction': self.malfunction, 'Damper': self.reported_damper_percent, 'Filter': self.filter})
+        else: # Update status with room damper states and dummy central damper position
+            status = json.dumps({'service': 'Status Update', 'Remote Operation': self.remote_operation_on, 'Heat': self.heat_mode, 'Cool': self.cool_mode,
+                                 'Fan': self.fan_mode, 'Fan Speed': self.fan_state, 'Heating': self.heating,
+                                 'Compressor': self.compressor, 'Malfunction': self.malfunction, 'Damper': 50, 'Filter': self.filter,
+                                 'Room Damper States': self.room_damper_states})
+        #print('Update Status', status)
         self.client.publish('AirconStatus', status)
 
     ### Methods for mqtt messages received from Home Manager ###
@@ -183,14 +205,16 @@ class NorthcliffAirconController(object):
         self.print_status("Thermo Off Command received on ")
         self.packet_1_dictionary["2Mode1"] = self.mode['Fan Off'] # Set Fan to Off Mode
         self.packet_3_dictionary["2Mode3"] = self.mode['Fan Off'] # Set Fan to Off Mode
-        self.packet_1_dictionary["5Fan1"] = self.fan_speed['Hi Off'] # Set Fan to High
-        self.packet_3_dictionary["5Fan3"] = self.fan_speed['Hi Off'] # Set Fan to High
+        self.packet_1_dictionary["5Fan1"] = self.fan_speed['Hi Off'] # Set Fan to High Off
+        self.packet_3_dictionary["5Fan3"] = self.fan_speed['Hi Off'] # Set Fan to High Off
+        self.requested_damper_percent = 50
         self.cool_mode = False
         self.fan_mode = False
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = False
-        self.fan_lo = False
+        #self.fan_med = False
+        #self.fan_hi = False
+        #self.fan_lo = False
+        self.fan_state = 'Off'
         self.update_status()
         time.sleep(3) # Wait for packets to be sent before disconnecting
         self.enable_serial_comms_loop = False # Sets the flag to exit serial comms loop and prepare for disconnect
@@ -202,9 +226,13 @@ class NorthcliffAirconController(object):
             self.remote_operation_on = True
             self.enable_serial_comms_loop = True
             GPIO.output(self.control_enable, True) # Take Control of Remote
-            self.damper_control_state = True
-            GPIO.output(self.damper_control, True) # Take Control of Damper
-            time.sleep (1.0)
+            if self.damper_rooms == {}: # Take control of central damper if there are no room dampers
+                self.damper_control_state = True
+                GPIO.output(self.damper_control, True)
+                time.sleep (1.0)
+                self.requested_damper_percent = 50
+            else:
+                self.open_all_room_dampers() # Open all configured room dampers
         self.packet_1_dictionary["2Mode1"] = self.mode['Fan On'] # Set to Fan Mode
         self.packet_1_dictionary["4SetTemp1"] = self.set_temp['30 degrees'] # Set 30 degrees for Heating
         self.packet_3_dictionary["2Mode3"] = self.mode['Fan On'] # Set to Fan Mode
@@ -214,9 +242,10 @@ class NorthcliffAirconController(object):
         self.cool_mode = False
         self.fan_mode = True
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = False
-        self.fan_lo = True
+        self.fan_state = 'Lo'
+        #self.fan_med = False
+        #self.fan_hi = False
+        #self.fan_lo = True
         self.update_status()
 
     def process_thermo_cool_command(self):
@@ -225,9 +254,13 @@ class NorthcliffAirconController(object):
             self.remote_operation_on = True
             self.enable_serial_comms_loop = True
             GPIO.output(self.control_enable, True) # Take Control of Remote
-            self.damper_control_state = True
-            GPIO.output(self.damper_control, True) # Take Control of Damper
-            time.sleep (1.0)
+            if self.damper_rooms == {}: # Take control of central damper if there are no room dampers
+                self.damper_control_state = True
+                GPIO.output(self.damper_control, True)
+                time.sleep (1.0)
+                self.requested_damper_percent = 50
+            else:
+                self.open_all_room_dampers() # Open all configured room dampers
         self.packet_1_dictionary["2Mode1"] = self.mode['Fan On'] # Set to Fan Mode
         self.packet_1_dictionary["4SetTemp1"] = self.set_temp['18 degrees'] # Set 18 Degrees for Cooling
         self.packet_3_dictionary["2Mode3"] = self.mode['Fan On'] # Set to Fan Mode
@@ -237,9 +270,10 @@ class NorthcliffAirconController(object):
         self.cool_mode = False
         self.fan_mode = True
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = False
-        self.fan_lo = True
+        self.fan_state = 'Lo'
+        #self.fan_med = False
+        #self.fan_hi = False
+        #self.fan_lo = True
         self.update_status()
         
     def process_ventilate_mode(self):
@@ -248,9 +282,13 @@ class NorthcliffAirconController(object):
             self.remote_operation_on = True
             self.enable_serial_comms_loop = True
             GPIO.output(self.control_enable, True) # Take Control of Remote
-            self.damper_control_state = True
-            GPIO.output(self.damper_control, True) # Take Control of Damper
-            time.sleep (1.0)
+            if self.damper_rooms == {}: # Take control of central damper if there are no room dampers
+                self.damper_control_state = True
+                GPIO.output(self.damper_control, True)
+                time.sleep (1.0)
+                self.requested_damper_percent = 50
+            else:
+                self.open_all_room_dampers() # Open all configured room dampers
         self.packet_1_dictionary["2Mode1"] = self.mode['Fan On'] # Set to Fan Mode
         self.packet_1_dictionary["4SetTemp1"] = self.set_temp['21 degrees'] # Set 21 Degrees
         self.packet_3_dictionary["2Mode3"] = self.mode['Fan On'] # Set to Fan Mode
@@ -260,9 +298,10 @@ class NorthcliffAirconController(object):
         self.cool_mode = False
         self.fan_mode = True
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = True
-        self.fan_lo = False
+        self.fan_state = 'Hi'
+        #self.fan_med = False
+        #self.fan_hi = True
+        #self.fan_lo = False
         self.update_status()
 
     def process_thermo_auto_command(self): # Holding place if Auto method is to be added in the future
@@ -279,9 +318,10 @@ class NorthcliffAirconController(object):
         self.cool_mode = False
         self.fan_mode = False
         self.heat_mode = True
-        self.fan_med = False
-        self.fan_hi = True
-        self.fan_lo = False
+        self.fan_state = 'Hi'
+        #self.fan_med = False
+        #self.fan_hi = True
+        #self.fan_lo = False
         self.update_status()
             
     def process_cool_command(self):
@@ -295,9 +335,10 @@ class NorthcliffAirconController(object):
         self.cool_mode = True
         self.fan_mode = False
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = True
-        self.fan_lo = False
+        self.fan_state = 'Hi'
+        #self.fan_med = False
+        #self.fan_hi = True
+        #self.fan_lo = False
         self.update_status()
 
     def process_fan_command(self):
@@ -309,37 +350,82 @@ class NorthcliffAirconController(object):
         self.cool_mode = False
         self.fan_mode = True
         self.heat_mode = False
-        self.fan_med = False
-        self.fan_hi = False
-        self.fan_lo = True
+        self.fan_state = 'Lo'
+        #self.fan_med = False
+        #self.fan_hi = False
+        #self.fan_lo = True
         self.update_status()
         
     def process_fan_hi_command(self):
         self.print_status("Fan Hi Command received on ")
         self.packet_1_dictionary["5Fan1"] = self.fan_speed['Hi On'] # Fan Hi
         self.packet_3_dictionary["5Fan3"] = self.fan_speed['Hi On'] # Fan Hi
-        self.fan_med = False
-        self.fan_hi = True
-        self.fan_lo = False
+        self.fan_state = 'Hi'
+        #self.fan_med = False
+        #self.fan_hi = True
+        #self.fan_lo = False
         self.update_status()
         
     def process_fan_med_command(self):
         self.print_status("Fan Med Command received on ")
         self.packet_1_dictionary["5Fan1"] = self.fan_speed['Med On'] # Fan Med
         self.packet_3_dictionary["5Fan3"] = self.fan_speed['Med On'] # Fan Med
-        self.fan_med = True
-        self.fan_hi = False
-        self.fan_lo = False
+        self.fan_state = 'Med'
+        #self.fan_med = True
+        #self.fan_hi = False
+        #self.fan_lo = False
         self.update_status()
         
     def process_fan_lo_command(self):
         self.print_status("Fan Lo Command received on ")
         self.packet_1_dictionary["5Fan1"] = self.fan_speed['Lo On'] # Fan Lo
         self.packet_3_dictionary["5Fan3"] = self.fan_speed['Lo On'] # Fan Lo
-        self.fan_med = False
-        self.fan_hi = False
-        self.fan_lo = True
-        self.update_status()       
+        self.fan_state = 'Lo'
+        #self.fan_med = False
+        #self.fan_hi = False
+        #self.fan_lo = True
+        self.update_status()
+
+    def open_all_room_dampers(self):
+        if self.damper_rooms != {}: # Only activate if room dampers are configured
+            print("Opening all Room Dampers")
+            for room in self.damper_rooms:
+                GPIO.output(self.damper_rooms[room], False) # Open all room dampers
+                self.room_damper_states[room] = False # Mirror room damper state
+        else:
+            print("Trying to open all room dampers when not configured")
+
+    def process_room_dampers(self, room_damper_settings):
+        self.print_status("Room Damper Settings Command received on ")
+        print("Requested: ", room_damper_settings)
+        closing_dampers = []
+        opening_dampers = []
+        if self.damper_rooms != {}: # Only activate if room dampers are configured
+            for room in self.room_damper_states:
+                if room in room_damper_settings:
+                    if self.room_damper_states[room] != room_damper_settings[room]: # Only set if changed
+                        if room_damper_settings[room]:
+                            closing_dampers.append(room)
+                        else:
+                            opening_dampers.append(room)           
+            if len(opening_dampers) != 0:
+                for room in opening_dampers: # Open dampers first, to avoid having all dampers closed
+                    damper_state = "Closed"
+                    damper_setting = "Opened"
+                    print("Changing", room, "Damper from", damper_state, "to", damper_setting)
+                    GPIO.output(self.damper_rooms[room], room_damper_settings[room]) # Set room damper state
+                    self.room_damper_states[room] = room_damper_settings[room] # Mirror room damper state
+            if len(closing_dampers) != 0:
+                for room in closing_dampers:
+                    damper_state = "Opened"
+                    damper_setting = "Closed"
+                    print("Changing", room, "Damper from", damper_state, "to", damper_setting)
+                    GPIO.output(self.damper_rooms[room], room_damper_settings[room]) # Set room damper state
+                    self.room_damper_states[room] = room_damper_settings[room] # Mirror room damper state
+            print("New Damper States: ", self.room_damper_states)
+            self.update_status()
+        else:
+            print("Trying to activate room dampers when not configured")
 
     def heartbeat_ack(self):
         #self.print_status('Heartbeat received from Home Manager on ')
@@ -590,7 +676,8 @@ class NorthcliffAirconController(object):
         self.process_thermo_off_command() #Turn Aircon off
         GPIO.cleanup()
         self.client.loop_stop() #Stop monitoring mqtt thread
-        self.spi.close() 
+        if self.damper_rooms != {}: # Stop spi interface if there are no room dampers
+            self.spi.close()
         sys.exit(0)
     ### End of methods called in the main loop ###
 
@@ -630,15 +717,20 @@ class NorthcliffAirconController(object):
                     else:
                         print("Packet 3 not sent because of Packet 2 error")
                     time.sleep(0.45) # Wait until Packet 3 has been sent, plus 0.05 sec gap (or equivalent time if it isn't sent)
-                    self.detect_damper_position(calibrate = False) # Determine the damper's current position
-                    self.adjust_damper_position() # Adjusts damper position if the current damper position is different from the requested damper position
+                    if self.damper_rooms == {}: # Only detect and adjust central damper position if there are no room dampers
+                        self.detect_damper_position(calibrate = False) # Determine the damper's current position
+                        self.adjust_damper_position() # Adjusts damper central position if the current damper position is different from the requested damper position
                 else:
                     if self.remote_operation_on == True: # This ensures that the disconnect is only done once
                         self.remote_operation_on = False # Flag that the aircon is not being controlled
                         GPIO.output(self.control_enable, False) # Relinquish Control of the aircon
-                        self.damper_control_state = False # Flag that the damper is no longer being controlled
-                        GPIO.output(self.damper_control, False) # Relinquish Control of Damper
-                        self.damper_day_zone() # Turn Damper Zone and Stop relays Off
+                        # Reset damper controls
+                        if self.damper_rooms == {}: # If central damper
+                            self.damper_control_state = False # Flag that the damper is no longer being controlled
+                            GPIO.output(self.damper_control, False) # Relinquish Control of Damper
+                            self.damper_day_zone() # Turn Damper Zone and Stop relays Off
+                        else: # If room dampers
+                            self.open_all_room_dampers() # Open all room dampers
                         self.heartbeat_count = 0 # Reset the heartbeat count to start from zero when Home Manager comms is restored
                         if self.no_heartbeat_ack == True:
                             self.malfunction = True
