@@ -7,12 +7,6 @@ An inclinometer is provided for the damper in order to detect its position and c
 
 This project requires a separate mqtt-based controller that captures the actual temperatures of each room, compares those temperatures to desired temperature levels and controls the air conditioner and damper to align the desired and actual temperatures. I've implemented such a [controller](https://github.com/roscoe81/Home-Manager) as part of a more comprehensive Home Automation System.
 
-Version 5.1 Gen adds the ability to control dampers for each room and to control fan speed. Hardware changes were necessary to control each room damper.
-
-![Aircon Room Damper Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Room_Damper_schem.png)
-
-![Aircon Controller with Room Dampers](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/IMG_2116.png).
-
 ## Hardware Schematics
 ![Aircon Controller Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Controller_schem.png)
 
@@ -31,6 +25,13 @@ Version 5.1 Gen adds the ability to control dampers for each room and to control
 I've included a [document](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/Aircon%20Controller%20Comms.pdf) that shows what I found when reverse engineering the protocol between the Mitsubishi RCD-H-E remote control unit and the CNB port on the air conditioner's main unit. There are still gaps in some areas of that protocol but all essential functions are covered.
 
 ![Communications Protocol](https://github.com/roscoe81/Aircon-Controller/blob/master/Serial%20Comms/F43B66E8-F1EA-4F13-B185-9C76222CD1DF.jpeg)
+
+## Version 5.1 Gen
+Version 5.1 Gen adds the ability to control dampers for each room and to control fan speed. Hardware changes were necessary to control each room damper.
+
+![Aircon Room Damper Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Room_Damper_schem.png)
+
+![Aircon Controller with Room Dampers](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/IMG_2116.png).
 
 ## License
 
