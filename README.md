@@ -10,6 +10,8 @@ This project requires a separate mqtt-based controller that captures the actual 
 ## Hardware Schematics
 ![Aircon Controller Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Controller_schem.png)
 
+Note that Pin 3 of J1 should be labelled X, not Y.
+
 ![Damper Position Sensor Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Damper%20Position%20Sensor_schem.png)
 
 ![Damper Control Board Schematic](https://github.com/roscoe81/Aircon-Controller/blob/master/Schematics%20and%20Photos/Aircon%20Damper%20Control%20Board_schem.png)
